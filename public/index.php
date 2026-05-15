@@ -45,6 +45,24 @@ function resolveImageUrl(string $img): string
     return $img;
 }
 
+function normalizeYoutubeId(string $video): string
+{
+    $video = trim($video);
+    if ($video === '') {
+        return '';
+    }
+
+    if (preg_match('#(?:youtu\.be/|youtube\.com/(?:watch\?(?:.*&)?v=|embed/|v/|shorts/))([A-Za-z0-9_-]{11})#i', $video, $matches)) {
+        return $matches[1];
+    }
+
+    if (preg_match('#^[A-Za-z0-9_-]{11}$#', $video)) {
+        return $video;
+    }
+
+    return '';
+}
+
 function renderPage(string $title, string $body): string
 {
     return "<!DOCTYPE html>
@@ -53,7 +71,7 @@ function renderPage(string $title, string $body): string
         <meta charset='UTF-8'>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>" . escape($title) . "</title>
-        <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap' rel='stylesheet'>
+        <link href='https://fonts.googleapis.com/css2?family=Notable&family=Inter:wght@300;400;600;700&display=swap' rel='stylesheet'>
         <link rel='stylesheet' href='/style.css'>
     </head>
     <body>
@@ -105,7 +123,7 @@ $app->get('/', function (Request $request, Response $response) use ($pdo) {
     $body .= "<form method='get' action='/' class='search-form'><label>Busca artista<small> (nom o biografia)</small><br><input type='text' name='q' value='" . escape($search) . "'></label><button type='submit'>Buscar</button></form>";
     $body .= "<div class='cards'>" . $items . "</div>";
 
-    $response->getBody()->write(renderPage('Llista d artistes', $body));
+    $response->getBody()->write(renderPage('Artistes', $body));
     return $response->withHeader('Content-Type', 'text/html');
 });
 
@@ -115,11 +133,11 @@ $app->get('/music/create', function (Request $request, Response $response) {
         <label>Imatge URL<br><input type='text' name='img' required></label>
         <label>Biografia<br><textarea name='biografia' rows='5' required></textarea></label>
         <label>Títol<br><input type='text' name='titol' required></label>
-        <label>Vídeo YouTube ID<br><input type='text' name='video'></label>
+        <label>Vídeo YouTube ID o URL<br><input type='text' name='video'></label>
         <button type='submit'>Guardar artista</button>
     </form>";
 
-    $body .= "<p class='back-link'>← Tornar a la llista</p>";
+    $body .= "<a class='back-link' href='/'>← Tornar a la llista</a>";
     $response->getBody()->write(renderPage('Afegeix artista', $body));
     return $response->withHeader('Content-Type', 'text/html');
 });
@@ -132,7 +150,7 @@ $app->post('/music', function (Request $request, Response $response) use ($pdo) 
         trim($data['img'] ?? ''),
         trim($data['biografia'] ?? ''),
         trim($data['titol'] ?? ''),
-        trim($data['video'] ?? ''),
+        normalizeYoutubeId((string) ($data['video'] ?? '')),
     ]);
 
     $id = $pdo->lastInsertId();
@@ -156,11 +174,11 @@ $app->get('/music/{id:[0-9]+}/edit', function (Request $request, Response $respo
         <label>Imatge URL<br><input type='text' name='img' value='" . escape($music['img']) . "' required></label>
         <label>Biografia<br><textarea name='biografia' rows='5' required>" . escape($music['biografia']) . "</textarea></label>
         <label>Títol<br><input type='text' name='titol' value='" . escape($music['titol']) . "' required></label>
-        <label>Vídeo YouTube ID<br><input type='text' name='video' value='" . escape($music['video']) . "'></label>
+        <label>Vídeo YouTube ID o URL<br><input type='text' name='video' value='" . escape($music['video']) . "'></label>
         <button type='submit'>Actualitzar artista</button>
     </form>";
 
-    $body .= "<p class='back-link'>← Tornar a la fitxa</p>";
+    $body .= "<a class='back-link' href='/music/" . escape($music['id']) . "'>← Tornar a la fitxa</a>";
     $response->getBody()->write(renderPage('Edita artista', $body));
     return $response->withHeader('Content-Type', 'text/html');
 });
@@ -173,7 +191,7 @@ $app->post('/music/{id:[0-9]+}/edit', function (Request $request, Response $resp
         trim($data['img'] ?? ''),
         trim($data['biografia'] ?? ''),
         trim($data['titol'] ?? ''),
-        trim($data['video'] ?? ''),
+        normalizeYoutubeId((string) ($data['video'] ?? '')),
         $args['id'],
     ]);
 
@@ -205,16 +223,12 @@ $app->get('/music/{id:[0-9]+}', function (
         return $response->withStatus(404)->withHeader('Content-Type', 'text/html');
     }
 
-    $videoHtml = '';
+    $body = "<div class='artist-layout'>";
+    $body .= "<img src='" . escape(resolveImageUrl($music['img'])) . "' alt='" . escape($music['nom']) . "' class='music-detail'>";
+    $body .= "<div class='biografia-section'><h3>Biografia</h3><p>" . nl2br(escape($music['biografia'])) . "</p></div>";
+    $body .= "</div>";
     if ($music['video']) {
-        $videoHtml = "<h2>Vídeo destacat</h2><div><iframe width='560' height='315' src='https://www.youtube.com/embed/" . escape($music['video']) . "?autoplay=0' title='Vídeo de " . escape($music['nom']) . "' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>";
-    }
-
-    $body = "<img src='" . escape(resolveImageUrl($music['img'])) . "' alt='" . escape($music['nom']) . "' class='music-detail'>";
-    $body .= "<h2>" . escape($music['titol']) . "</h2>";
-    $body .= "<p>" . nl2br(escape($music['biografia'])) . "</p>";
-    if ($music['video']) {
-        $body .= "<h3 class='video-title'>" . escape($music['titol']) . "</h3><div class='video-container'><iframe width='560' height='315' src='https://www.youtube.com/embed/" . escape($music['video']) . "?autoplay=0' title='Vídeo de " . escape($music['nom']) . "' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>";
+        $body .= "<h3 class='video-title'>" . escape($music['titol']) . "</h3><div class='video-container'><iframe width='560' height='315' src='https://www.youtube-nocookie.com/embed/" . escape($music['video']) . "?autoplay=0' title='Vídeo de " . escape($music['nom']) . "' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>";
     }
     $body .= "<div class='actions'>
         <a href='/music/" . escape($music['id']) . "/edit'>Edita</a>
@@ -222,7 +236,7 @@ $app->get('/music/{id:[0-9]+}', function (
             <button type='submit'>Eliminar</button>
         </form>
     </div>
-    <p class='back-link'>← Tornar a la llista</p>";
+    <a class='back-link' href='/'>← Tornar a la llista</a>";
 
     $response->getBody()->write(renderPage($music['nom'], $body));
     return $response->withHeader('Content-Type', 'text/html');
