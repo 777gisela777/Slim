@@ -53,22 +53,16 @@ function renderPage(string $title, string $body): string
         <meta charset='UTF-8'>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>" . escape($title) . "</title>
-        <style>
-            body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; line-height: 1.6; }
-            .cards { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-            .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
-            .card img { max-width: 100%; height: auto; border-radius: 6px; }
-            .actions { margin-top: 16px; }
-            .actions a, button { text-decoration: none; display: inline-block; padding: 10px 16px; border-radius: 6px; border: 1px solid #0077cc; background: #0077cc; color: white; }
-            .actions a:hover, button:hover { background: #005fa3; }
-            form { display: grid; gap: 14px; }
-            label { display: block; font-weight: bold; }
-            input[type=text], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
-        </style>
+        <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap' rel='stylesheet'>
+        <link rel='stylesheet' href='/style.css'>
     </head>
     <body>
-        <h1>" . escape($title) . "</h1>
-        $body
+        <div class='container'>
+            <h1>" . escape($title) . "</h1>
+            <div class='content'>
+                $body
+            </div>
+        </div>
     </body>
     </html>";
 }
@@ -107,8 +101,8 @@ $app->get('/', function (Request $request, Response $response) use ($pdo) {
         $items = '<p>No hi ha artistes disponibles.</p>';
     }
 
-    $body = "<p><a href='/music/create'>Afegeix un artista nou</a></p>";
-    $body .= "<form method='get' action='/'><label>Busca artista<small> (nom o biografia)</small><br><input type='text' name='q' value='" . escape($search) . "'></label><button type='submit'>Buscar</button></form>";
+    $body = "<button class='main-button' onclick=\"window.location.href='/music/create'\">Afegeix un artista nou</button>";
+    $body .= "<form method='get' action='/' class='search-form'><label>Busca artista<small> (nom o biografia)</small><br><input type='text' name='q' value='" . escape($search) . "'></label><button type='submit'>Buscar</button></form>";
     $body .= "<div class='cards'>" . $items . "</div>";
 
     $response->getBody()->write(renderPage('Llista d artistes', $body));
@@ -125,7 +119,7 @@ $app->get('/music/create', function (Request $request, Response $response) {
         <button type='submit'>Guardar artista</button>
     </form>";
 
-    $body .= "<p><a href='/'>← Tornar a la llista</a></p>";
+    $body .= "<p class='back-link'>← Tornar a la llista</p>";
     $response->getBody()->write(renderPage('Afegeix artista', $body));
     return $response->withHeader('Content-Type', 'text/html');
 });
@@ -166,7 +160,7 @@ $app->get('/music/{id:[0-9]+}/edit', function (Request $request, Response $respo
         <button type='submit'>Actualitzar artista</button>
     </form>";
 
-    $body .= "<p><a href='/music/" . escape($music['id']) . "'>← Tornar a la fitxa</a></p>";
+    $body .= "<p class='back-link'>← Tornar a la fitxa</p>";
     $response->getBody()->write(renderPage('Edita artista', $body));
     return $response->withHeader('Content-Type', 'text/html');
 });
@@ -216,17 +210,19 @@ $app->get('/music/{id:[0-9]+}', function (
         $videoHtml = "<h2>Vídeo destacat</h2><div><iframe width='560' height='315' src='https://www.youtube.com/embed/" . escape($music['video']) . "?autoplay=0' title='Vídeo de " . escape($music['nom']) . "' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>";
     }
 
-    $body = "<img src='" . escape(resolveImageUrl($music['img'])) . "' alt='" . escape($music['nom']) . "' style='max-width:100%;'>
-        <h2>" . escape($music['titol']) . "</h2>
-        <p>" . nl2br(escape($music['biografia'])) . "</p>
-        " . $videoHtml . "
-        <div class='actions'>
-            <a href='/music/" . escape($music['id']) . "/edit'>Edita</a>
-            <form method='post' action='/music/" . escape($music['id']) . "/delete' style='display:inline; margin-left:10px;'>
-                <button type='submit' style='background:#c0392b; border-color:#c0392b;'>Eliminar</button>
-            </form>
-        </div>
-        <p><a href='/'>← Tornar a la llista</a></p>";
+    $body = "<img src='" . escape(resolveImageUrl($music['img'])) . "' alt='" . escape($music['nom']) . "' class='music-detail'>";
+    $body .= "<h2>" . escape($music['titol']) . "</h2>";
+    $body .= "<p>" . nl2br(escape($music['biografia'])) . "</p>";
+    if ($music['video']) {
+        $body .= "<h3 class='video-title'>" . escape($music['titol']) . "</h3><div class='video-container'><iframe width='560' height='315' src='https://www.youtube.com/embed/" . escape($music['video']) . "?autoplay=0' title='Vídeo de " . escape($music['nom']) . "' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>";
+    }
+    $body .= "<div class='actions'>
+        <a href='/music/" . escape($music['id']) . "/edit'>Edita</a>
+        <form method='post' action='/music/" . escape($music['id']) . "/delete'>
+            <button type='submit'>Eliminar</button>
+        </form>
+    </div>
+    <p class='back-link'>← Tornar a la llista</p>";
 
     $response->getBody()->write(renderPage($music['nom'], $body));
     return $response->withHeader('Content-Type', 'text/html');
