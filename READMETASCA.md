@@ -14,6 +14,10 @@ Aquest programa és una aplicació web que permet accedir i gestionar un catàle
 És una pàgina web dinàmica que utilitza el framework Slim. Permet cercar artistes, afegir-hi de nous, editar la seva informació o eliminar-los.
 
 ---
+## Vídeo
+
+![demo](./public/assets/img/Video%20Project.gif)
+---
 
 ## Possibles respostes del servidor
 
